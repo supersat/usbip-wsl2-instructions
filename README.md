@@ -21,6 +21,8 @@ Follow the instructions to build usbip-win in README.md. You'll have to install 
 If you don't need the latest version you can get prebuilt versions located here:
 > https://github.com/cezuni/usbip-win/releases
 
+Note that the prebuilt version (0.3.5-dev) crashed on me. usbip-win was developed in the pre-WinUSB era, so using it on Windows 10 requires that you enable testsigned drivers. This has some security implications.
+
 ## Adding USB support to WSL Linux
 
 Install WSL 2:
