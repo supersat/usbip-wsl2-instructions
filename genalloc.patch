@@ -1,0 +1,35 @@
+diff --git a/lib/Kconfig b/lib/Kconfig
+index b189ab532bd2..77acaf631415 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -332,7 +332,7 @@ config DECOMPRESS_LZ4
+ # Generic allocator support is selected if needed
+ #
+ config GENERIC_ALLOCATOR
+-	bool
++	tristate
+ 
+ #
+ # reed solomon support is select'ed if needed
+diff --git a/lib/genalloc.c b/lib/genalloc.c
+index 9fc31292cfa1..a079a927caa5 100644
+--- a/lib/genalloc.c
++++ b/lib/genalloc.c
+@@ -26,6 +26,8 @@
+  * Copyright 2005 (C) Jes Sorensen <jes@trained-monkey.org>
+  */
+ 
++#include <linux/module.h>
++
+ #include <linux/slab.h>
+ #include <linux/export.h>
+ #include <linux/bitmap.h>
+@@ -35,6 +37,8 @@
+ #include <linux/of_device.h>
+ #include <linux/vmalloc.h>
+ 
++MODULE_LICENSE("GPL");
++
+ static inline size_t chunk_size(const struct gen_pool_chunk *chunk)
+ {
+ 	return chunk->end_addr - chunk->start_addr + 1;
