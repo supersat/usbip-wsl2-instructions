@@ -58,3 +58,10 @@ make olddefconfig
 
 make LOCALVERSION= -j $(nproc)
 sudo make modules_install
+
+# Make USBIP userland tools
+cd tools/usb/usbip
+./autogen.sh
+./configure
+make -j $(nproc)
+sudo make install
