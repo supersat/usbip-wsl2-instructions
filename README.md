@@ -23,145 +23,55 @@ If you don't need the latest version you can get prebuilt versions located here:
 
 Note that the prebuilt version (0.3.5-dev) crashed on me. usbip-win was developed in the pre-WinUSB era, so using it on Windows 10 requires that you enable testsigned drivers. This has some security implications.
 
-## Adding USB support to WSL Linux
+## Adding USB support to WSL2 Linux
 
-Install WSL 2:
+These instructions assume you already have WSL2 and Ubuntu for WSL2 installed. If not, follow the directions here:
+
 > https://docs.microsoft.com/en-us/windows/wsl/wsl2-install
 
-Please take note that you must be running Windows 10 build 18917 or higher as explained in the description. 
+Please note that you must be running Windows 10 1903 build 18362 or higher as explained in the description. 
 
-You'll need Windows update to function to update to this version. 
-
-If Windows update doesn't work because of various policy restrictions at your work, you can fix this by going into regedit.exe and locating to:
-> HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\WindowsUpdate
-
-and deleting all entries. This will probably auto-refresh in the future with the original settings when you log back onto your domain. I think changing these settings are not good anyway so I won't miss the changes.
-
-Open Ubuntu in WSL by navigating to the start menu and opening Ubuntu
+Open an Ubuntu shell to run the following commands. 
 
 Update sources:
 ```
 ~$ sudo apt update
 ```
 
-Install prerequisites to build Linux kernel:
+Install prerequisites to build the Linux kernel:
 ```
 ~$ sudo apt install build-essential flex bison libssl-dev libelf-dev libncurses-dev autoconf libudev-dev libtool
 ````
 
-Find out the name of your Linux kernel:
+Clone this repository and run the mk-wsl-usbip.sh script:
 ```
-~$ uname -r
-4.19.43-microsoft-standard
-```
-
-Clone the WSL 2 kernel. Typically kernel source is put in /usr/src/[kernel name]:
-```
-~$ sudo git clone https://github.com/microsoft/WSL2-Linux-Kernel.git /usr/src/4.19.43-microsoft-standard
-~$ cd /usr/src/4.19.43-microsoft-standard
+~$ git clone https://github.com/supersat/usbip-wsl2-instructions.git
+~$ cd usbip-wsl2-instructions
+~/usbip-wsl2-instructions$ ./mk-wsl-usbip.sh
 ```
 
-Checkout your version of the kernel:
-```
-/usr/src/4.19.43-microsoft-standard$ sudo git checkout v4.19.43
-```
+If all goes well, the `mk-wsl-usbip.sh` script should detect your kernel version, 
+find the matching tag from Microsoft's WSL2 kernel git repository, clone that version
+of the WSL2 kernel repository, enable building usbip and related modules, make
+the kernel, install the modules, make the usbip userland tools, and install the
+usbip userland tools!
 
-Copy in your current kernel configuration:
-```
-/usr/src/4.19.43-microsoft-standard$ sudo cp /proc/config.gz config.gz
-/usr/src/4.19.43-microsoft-standard$ sudo gunzip config.gz
-/usr/src/4.19.43-microsoft-standard$ sudo mv config .config
-```
+Building the entire kernel is necessary to generate the Module.symvers file, which
+allows modules to know that they're linking against known versions of functions
+in the kernel. As far as I can tell, there's no other way to get this file.
 
-Run menuconfig to select what kernel modules you'd like to add:
-```
-/usr/src/4.19.43-microsoft-standard$ sudo make menuconfig
-```
+Note that the LOCALVERSION= variable is passed to make. This ensures that the kernel
+version doesn't have a plus added to it (meaning that it was built from a tree modified
+from a particular git tag). If a plus is added to the kernel version, there will be
+a mismatch between the running kernel and the version of the kernel the modules expect.
 
-Navigate in menuconfig to select the USB kernel modules you'd like. These suited my needs but add more or less as you see fit:
-```
-Device Drivers->USB support[*]
-Device Drivers->USB support->Support for Host-side USB[M]
-Device Drivers->USB support->Enable USB persist by default[*]
-Device Drivers->USB support->USB Modem (CDC ACM) support[M]
-Device Drivers->USB support->USB Mass Storage support[M]
-Device Drivers->USB support->USB/IP support[M]
-Device Drivers->USB support->VHCI hcd[M]
-Device Drivers->USB support->VHCI hcd->Number of ports per USB/IP virtual host controller(8)
-Device Drivers->USB support->Number of USB/IP virtual host controllers(1)
-Device Drivers->USB support->USB Serial Converter support[M]
-Device Drivers->USB support->USB Serial Converter support->USB FTDI Single Port Serial Driver[M]
-Device Drivers->USB support->USB Physical Layer drivers->NOP USB Transceiver Driver[M]
-Device Drivers->Network device support->USB Network Adapters[M]
-Device Drivers->Network device support->USB Network Adapters->[Deselect everything you don't care about]
-Device Drivers->Network device support->USB Network Adapters->Multi-purpose USB Networking Framework[M]
-Device Drivers->Network device support->USB Network Adapters->CDC Ethernet support (smart devices such as cable modems)[M]
-Device Drivers->Network device support->USB Network Adapters->Multi-purpose USB Networking Framework->Host for RNDIS and ActiveSync devices[M]
-```
+If you want to add driver support for other types of USB peripherals, you can do a
+`make menuconfig` in the WSL2-Linux-Kernel directory to select which ones you want.
+Be sure to specify building them as modules. Then, you can do another build:
 
-Build the kernel and modules with as many cores as you have available (-j [number of cores]). This may take a few minutes depending how fast your machine is:
 ```
-/usr/src/4.19.43-microsoft-standard$ sudo make -j 12 && sudo make modules_install -j 12 && sudo make install -j 12
-```
-
-After the build completes you'll get a list of what kernel modules have been installed. Mine looks like:
-```
-  INSTALL drivers/hid/hid-generic.ko
-  INSTALL drivers/hid/hid.ko
-  INSTALL drivers/hid/usbhid/usbhid.ko
-  INSTALL drivers/net/mii.ko
-  INSTALL drivers/net/usb/cdc_ether.ko
-  INSTALL drivers/net/usb/rndis_host.ko
-  INSTALL drivers/net/usb/usbnet.ko
-  INSTALL drivers/usb/class/cdc-acm.ko
-  INSTALL drivers/usb/common/usb-common.ko
-  INSTALL drivers/usb/core/usbcore.ko
-  INSTALL drivers/usb/serial/ftdi_sio.ko
-  INSTALL drivers/usb/phy/phy-generic.ko
-  INSTALL drivers/usb/serial/usbserial.ko
-  INSTALL drivers/usb/storage/usb-storage.ko
-  INSTALL drivers/usb/usbip/usbip-core.ko
-  INSTALL drivers/usb/usbip/vhci-hcd.ko
-  DEPMOD  4.19.43-microsoft-standard
-```
-
-Build USBIP tools:
-```
-/usr/src/4.19.43-microsoft-standard$ cd tools/usb/usbip
-/usr/src/4.19.43-microsoft-standard/tools/usb/usbip$ sudo ./autogen.sh
-/usr/src/4.19.43-microsoft-standard/tools/usb/usbip$ sudo ./configure
-/usr/src/4.19.43-microsoft-standard/tools/usb/usbip$ sudo make install -j 12
-```
-
-Copy USBIP tools libraries to location that USBIP tools can get to them:
-```
-/usr/src/4.19.43-microsoft-standard/tools/usb/usbip$ sudo cp libsrc/.libs/libusbip.so.0 /lib/libusbip.so.0
-````
-
-Make a script in your home directory to modprobe in all the drivers. Be sure to modprobe in usbcore and usb-common first. I called mine startusb.sh. Mine looks like:
-```
-#!/bin/bash
-sudo modprobe usbcore
-sudo modprobe usb-common
-sudo modprobe hid-generic
-sudo modprobe hid
-sudo modprobe usbnet
-sudo modprobe cdc_ether
-sudo modprobe rndis_host
-sudo modprobe usbserial
-sudo modprobe usb-storage
-sudo modprobe cdc-acm
-sudo modprobe ftdi_sio
-sudo modprobe usbip-core
-sudo modprobe vhci-hcd
-echo $(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
-```
-The last line spits out the IP address of the Windows host. Helpful when you are attaching devices from it.
-If you see some crap about /bin/bash^M: bad interpreter: No such file or directory it's because you have cr+lf line endings. You need to convert your shellscript to just lf.
-
-Mark it as executable:
-```
-~$ sudo chmod +x startusb.sh
+~/usbip-wsl2-instructions/WSL2-Linux-Kernel$ make LOCALVERSION= -j $(nproc)
+~/usbip-wsl2-instructions/WSL2-Linux-Kernel$ sudo make modules_install
 ```
 
 Restart WSL. In a CMD window in Windows type:
@@ -169,9 +79,9 @@ Restart WSL. In a CMD window in Windows type:
 C:\Users\rpasek>wsl --shutdown
 ```
 
-Open WSL again by going to start menu and opening Ubuntu and run your script:
+Open WSL2 again and run the `startusb.sh` script which will load all of the new modules:
 ```
-~$ ./startusb.sh
+~$ ~/usbip-wsl2-instructions/startusb.sh
 ```
 
 Check in dmesg that all your USB drivers got loaded:
